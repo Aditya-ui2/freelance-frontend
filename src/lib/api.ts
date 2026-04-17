@@ -1,21 +1,39 @@
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
+console.log(">>> [FREELANCEUP] API v2.2 Initialized in DEPLOYMENT Repository");
+
+// This is the source of truth for the API base URL.
+// We explicitly hardcode the Render URL as a fallback to ensure production reliability in this specific repo.
+const BASE_ORIGIN = (import.meta.env.VITE_API_BASE_URL || "https://freelance-backend-ruiw.onrender.com").replace(/\/$/, "");
+const API_PREFIX = "/api";
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  // We keep a baseURL for compatibility, but our interceptor will manually construct the full URL.
+  baseURL: `${BASE_ORIGIN}${API_PREFIX}`,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Add a request interceptor to attach the token
+// Add a request interceptor to attach the token and manually fix the URL
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // MANUAL URL CONSTRUCTION:
+    // This is the most robust way to ensure the /api prefix is never dropped.
+    if (config.url && !config.url.startsWith('http')) {
+      const endpoint = config.url.startsWith('/') ? config.url : '/' + config.url;
+      const fullURL = `${BASE_ORIGIN}${API_PREFIX}${endpoint}`;
+      
+      console.log(`[API REQUEST] To: ${fullURL}`);
+      config.url = fullURL;
+      config.baseURL = "";
+    }
+    
     return config;
   },
   (error) => Promise.reject(error)
@@ -77,7 +95,7 @@ export const messageApi = {
   getConversations: () => api.get('/messages/conversations'),
   startConversation: (participantId: string) => api.post('/messages/conversations', { participantId }),
   getMessages: (conversationId: string) => api.get(`/messages/conversations/${conversationId}/messages`),
-  sendMessage: (conversationId: string, content: string) => api.post('/messages/messages', { conversationId, content })
+  sendMessage: (conversationId: string, content: string) => api.post('/messages/messages', { conversationId, content }),
 };
 
 export const analyticsApi = {
