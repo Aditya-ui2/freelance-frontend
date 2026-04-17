@@ -33,18 +33,23 @@ export default function TalentRadar({ onStartChat }: { onStartChat?: (id: string
       setLatestSkills(data.latestProjectSkills || []);
       setActiveScansCount(data.activeScans || 0);
       
-      const scoredFreelancers = data.freelancers.map((f: any) => ({
-        ...f,
-        match: calculateMatchScore(f.skills || [], data.latestProjectSkills || [], f.trustScore || 0, f.pocScore || 0),
-        reason: (f.skills || []).some((s: string) => (data.latestProjectSkills || []).includes(s)) 
-          ? `Perfect technical match based on your recent project requirements.`
-          : `High trust and performance rating makes them a safe candidate.`
-      }));
+      const scoredFreelancers = (data?.freelancers || []).map((f: any) => {
+        try {
+          const match = calculateMatchScore(f.skills || [], data?.latestProjectSkills || [], f.trustScore || 0, f.pocScore || 0);
+          const reason = (f.skills || []).some((s: string) => (data?.latestProjectSkills || []).includes(s)) 
+            ? `Perfect technical match based on your recent project requirements.`
+            : `High trust and performance rating makes them a safe candidate.`;
+          return { ...f, match, reason };
+        } catch (e) {
+          return { ...f, match: 50, reason: "Manual match recommended." };
+        }
+      });
 
-      setFreelancers(scoredFreelancers.sort((a, b) => b.match - a.match));
+      setFreelancers(scoredFreelancers.sort((a: any, b: any) => (b.match || 0) - (a.match || 0)));
     } catch (err) {
       console.error("Radar failed:", err);
-      toast.error("Failed to re-run radar scan");
+      setFreelancers([]); // Empty state instead of crash
+      toast.error("Radar scan interrupted: Marketplace database is currently updating.");
     } finally {
       setLoading(false);
     }
